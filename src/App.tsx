@@ -1,5 +1,5 @@
 import type { Component } from 'solid-js'
-import styles from './App.module.css'
+import styles from './styles/App.module.css'
 import Game from './components/Game';
 
 const App: Component = () => {
