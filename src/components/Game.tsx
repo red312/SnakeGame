@@ -61,22 +61,22 @@ function moveSnake(snake: Snake, context: CanvasRenderingContext2D): Snake {
 }
 
 
-function changeDirection(snake: Snake, key: string, step: Point, keys: string[]): Snake {
+function changeDirection(snake: Snake, key: string): Snake {
     switch(key) {
-        case(keys[0]): { //d
-            snake.step = step.x === -1 ? step : {x: 1, y: 0}
+        case(snake.keys[0]): { //d
+            snake.step = snake.step.x === -1 ? snake.step : {x: 1, y: 0}
             break
         }
-        case(keys[1]): { // a
-            snake.step = step.x === 1 ? step : {x: -1, y: 0}
+        case(snake.keys[1]): { // a
+            snake.step = snake.step.x === 1 ? snake.step : {x: -1, y: 0}
             break
         }
-        case(keys[2]): { //s
-            snake.step = step.y === -1 ? step : {x: 0, y: 1}
+        case(snake.keys[2]): { //s
+            snake.step = snake.step.y === -1 ? snake.step : {x: 0, y: 1}
             break
         }
-        case(keys[3]): { //w
-            snake.step =  step.y === 1 ? step : {x: 0, y: -1}
+        case(snake.keys[3]): { //w
+            snake.step =  snake.step.y === 1 ? snake.step : {x: 0, y: -1}
             break
         }
     }
@@ -130,15 +130,15 @@ const Game: Component = () => {
         const e = event();
         if (e) {
                 if (snakeRed().keys.indexOf(e.key) !== -1) {   
-                    setSnakeRed(snake => changeDirection(snake, e.key, snake.step, snake.keys))
+                    setSnakeRed(snake => changeDirection(snake, e.key))
                     }   
                 if (snakeBlack().keys.indexOf(e.key) !== -1) {   
-                    setSnakeBlack(snake => changeDirection(snake, e.key, snake.step, snake.keys))
+                    setSnakeBlack(snake => changeDirection(snake, e.key))
                     }
                 }  
         }
     )
-    setInterval(() => {
+    const timer = setInterval(() => {
         setSnakeRed(snake => moveSnake(snake, context))
         setSnakeBlack(snake => moveSnake(snake, context))
         if (snakeRed().body[0].x === fruit().x && snakeRed().body[0].y === fruit().y) {
@@ -152,7 +152,7 @@ const Game: Component = () => {
             setFruit(() => updateFruit(context))
         }
     }, 50)
-
+    onCleanup(() => clearInterval(timer))
     return (
         <div>
             <h1 class={styles.name}>
