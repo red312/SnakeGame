@@ -1,4 +1,4 @@
-import { Component, createEffect } from 'solid-js'
+import { Component, Show, batch, createEffect } from 'solid-js'
 import { onMount, onCleanup } from "solid-js";
 import { createSignal } from "solid-js";
 import { useKeyDownEvent } from "@solid-primitives/keyboard";
@@ -9,153 +9,159 @@ type Point = {
     y: number
 }
 
-type Snakes = {
-    red: Point[]
-    black: Point[]
-    redStep: Point
-    blackStep: Point
+enum EColor {
+    black, red
+}
+
+type Snake = {
+    body: Point[]
+    step: Point
+    eaten: number
+    color: EColor
+    keys: string[]
 }
 
 
-function drawFruit(point: Point, context: CanvasRenderingContext2D): void {
+function updateFruit(context: CanvasRenderingContext2D): Point {
+    const point: Point = {
+        x: Math.floor(Math.random() * 100),
+        y: Math.floor(Math.random() * 100)
+    }
     context.fillRect(point.x, point.y, 1, 1)
+    return point
 }
 
-function drawSnake(snake: Point[], context: CanvasRenderingContext2D, color: string): void {
-    snake.forEach((point) => {
-        if (color === 'black') {
+function drawSnake(snake: Snake, context: CanvasRenderingContext2D): void {
+    snake.body.forEach((point, index) => {
+        if (index == 0) {
+            if (snake.color == EColor.red)
+                context.fillStyle = 'black'
+            else context.fillStyle = 'red'
+        } 
+        else if (snake.color === EColor.black) {
             context.fillStyle = 'black'
         } else context.fillStyle = 'red'
         context.fillRect(point.x, point.y, 1, 1)
     })
 }
 
-function moveSnake(snake: Point[], context: CanvasRenderingContext2D, step: Point, eaten: boolean): Point[] {
+function moveSnake(snake: Snake, context: CanvasRenderingContext2D): Snake {
     const next: Point = {
-        x: (snake[0].x + step.x) === 0 ? 99 : (snake[0].x + step.x) % 100,
-        y: (snake[0].y + step.y) === 0 ? 99 : (snake[0].y + step.y) % 100,
+        x: (snake.body[0].x + snake.step.x) === -1 ? 100 : (snake.body[0].x + snake.step.x) % 100,
+        y: (snake.body[0].y + snake.step.y) === -1 ? 100 : (snake.body[0].y + snake.step.y) % 100,
     }
-    if (!eaten) {
-        let del: Point = snake.pop()!
-        context.clearRect(del!.x, del!.y, 1, 1)
+    if (snake.eaten == 0) {
+        let del: Point = snake.body.pop()!
+        context.clearRect(del.x, del.y, 1, 1)
     }
-    return [next, ...snake]
+    else snake.eaten--
+    snake.body = [next, ...snake.body]
+    drawSnake(snake, context)
+    return snake
 }
 
 
-function changeDirection(key: string, step: Point, keys: string[]): Point {
+function changeDirection(snake: Snake, key: string, step: Point, keys: string[]): Snake {
     switch(key) {
         case(keys[0]): { //d
-            return step.x === -1 ? step : {x: 1, y: 0}
+            snake.step = step.x === -1 ? step : {x: 1, y: 0}
+            break
         }
         case(keys[1]): { // a
-            return step.x === 1 ? step : {x: -1, y: 0}
+            snake.step = step.x === 1 ? step : {x: -1, y: 0}
+            break
         }
         case(keys[2]): { //s
-            return step.y === -1 ? step : {x: 0, y: 1}
+            snake.step = step.y === -1 ? step : {x: 0, y: 1}
+            break
         }
         case(keys[3]): { //w
-            return step.y === 1 ? step : {x: 0, y: -1}
-        }
-        default: {
-            return {x: step.x, y: step.y}
+            snake.step =  step.y === 1 ? step : {x: 0, y: -1}
+            break
         }
     }
+    return snake
+}
+
+function snakeEat(snake: Snake): Snake {
+    snake.eaten = 5
+    return snake
 }
 
 const Game: Component = () => {
     let canvas
     const event = useKeyDownEvent();
     const startFruit: Point = {
-        x: Math.floor(Math.random() * 100),
-        y: Math.floor(Math.random() * 100)
-    }
-
-    const redKeys: string[] = ['d', 'a', 's', 'w']
-    const snakesStart: Snakes = {
-        red: [ {x: 23, y: 50}, {x: 22, y: 50}, {x: 21, y: 50}, {x: 20, y: 50}, ],
-        black: [ {x: 77, y: 50}, {x: 78, y: 50}, {x: 79, y: 50}, {x: 80, y: 50}, ],
-        redStep: { x: 1, y: 0 },
-        blackStep: { x: -1, y: 0}
-    }
-
-    const startEaten: Point = {
         x: 0,
         y: 0
     }
+    const counter: Point = {
+        x: 0,
+        y: 0
+    }
+    const [eaten, setEaten] = createSignal(counter)
+    const snakeRedStart: Snake = {
+        body: [ {x: 24, y: 50}, {x: 23, y: 50}, {x: 22, y: 50}, {x: 21, y: 50}, {x: 20, y: 50} ],
+        step: { x: 1, y: 0 },
+        eaten: 0,
+        color: EColor.red,
+        keys: ['d', 'a', 's', 'w'],
+    }
+    const snakeBlackStart: Snake = {
+        body: [ {x: 76, y: 50}, {x: 77, y: 50}, {x: 78, y: 50}, {x: 79, y: 50}, {x: 80, y: 50} ],
+        step: { x: -1, y: 0 },
+        eaten: 0,
+        color: EColor.black,
+        keys: ['ArrowRight', 'ArrowLeft', 'ArrowDown', 'ArrowUp'],
+    }
 
-    const [eatenNumber, setEatenNumber] = createSignal(startEaten)
-    const blackKeys: string[] = ['ArrowRight', 'ArrowLeft', 'ArrowDown', 'ArrowUp']
+    const [snakeRed, setSnakeRed] = createSignal(snakeRedStart)
+    const [snakeBlack, setSnakeBlack] = createSignal(snakeBlackStart)
 
-    const [snakes, setSnakes] = createSignal(snakesStart)
     const [fruit, setFruit] = createSignal(startFruit)
 
     let context: CanvasRenderingContext2D
     onMount(() => {
         context = canvas!.getContext('2d')
         context.scale(5, 5)
-        drawFruit(fruit(), context)
+        setFruit(() => updateFruit(context))
     })
     createEffect(() => {
         const e = event();
         if (e) {
-            if (redKeys.indexOf(e.key) !== -1)
-            {   
-                setSnakes(snakes => {return {red: snakes.red,
-                    black: snakes.black, 
-                    redStep: changeDirection(e.key, snakes.redStep, redKeys),
-                    blackStep: snakes.blackStep
-                }})
-            }
-            if (blackKeys.indexOf(e.key) !== -1)
-            {   
-                setSnakes(snakes => {return {red: snakes.red,
-                    black: snakes.black, 
-                    blackStep: changeDirection(e.key, snakes.blackStep, blackKeys),
-                    redStep: snakes.redStep
-                }})
-            }
+                if (snakeRed().keys.indexOf(e.key) !== -1) {   
+                    setSnakeRed(snake => changeDirection(snake, e.key, snake.step, snake.keys))
+                    }   
+                if (snakeBlack().keys.indexOf(e.key) !== -1) {   
+                    setSnakeBlack(snake => changeDirection(snake, e.key, snake.step, snake.keys))
+                    }
+                }  
         }
-    })
-    let eatenRed: boolean = false;
-    let eatenBlack: boolean = false;
-    let indexRed: number = 0
-    let indexBlack: number = 0
-    let timer = setTimeout(function normal() {
-        setSnakes(value => {return {red:  moveSnake(value.red, context, value.redStep, eatenRed), black: moveSnake(value.black, context, value.blackStep, eatenBlack), redStep: value.redStep, blackStep: value.blackStep}})
-        if (snakes().red[0].x === fruit().x && snakes().red[0].y === fruit().y) {
-            indexRed = 5
-            eatenRed = true
-            setEatenNumber(value => {return {x: value.x + 5, y: value.y}})
-            setFruit((value) => {return {x: Math.floor(Math.random() * 100),
-                y: Math.floor(Math.random() * 100)}})
-            drawFruit(fruit(), context)
+    )
+    setInterval(() => {
+        setSnakeRed(snake => moveSnake(snake, context))
+        setSnakeBlack(snake => moveSnake(snake, context))
+        if (snakeRed().body[0].x === fruit().x && snakeRed().body[0].y === fruit().y) {
+            setSnakeRed(snake => snakeEat(snake))
+            setEaten(() => {return {x: eaten().x + 5, y: eaten().y}})
+            setFruit(() => updateFruit(context))
         }
-        if (snakes().black[0].x === fruit().x && snakes().black[0].y === fruit().y) {
-            indexBlack = 5
-            eatenBlack = true
-            setEatenNumber(value => {return {x: value.x, y: value.y + 5}})
-            setFruit((value) => {return {x: Math.floor(Math.random() * 100),
-                y: Math.floor(Math.random() * 100)}})
-            drawFruit(fruit(), context)
+        if (snakeBlack().body[0].x === fruit().x && snakeBlack().body[0].y === fruit().y) {
+            setSnakeBlack(snake => snakeEat(snake))
+            setEaten(() => {return {x: eaten().x, y: eaten().y + 5}})
+            setFruit(() => updateFruit(context))
         }
-        if (indexRed > 0) {
-            indexRed--
-        } else {eatenRed = false}
-        if (indexBlack > 0) {
-            indexBlack--
-        } else {eatenBlack = false}
-        timer = setTimeout(normal, 50)
     }, 50)
 
-    createEffect(() => {
-        drawSnake(snakes().red, context, 'red')
-        drawSnake(snakes().black, context, 'black')
-    })
     return (
         <div>
-            <div>
-                {eatenNumber().x} : {eatenNumber().y}
+            <h1 class={styles.name}>
+                SNAKOW
+            </h1>
+            <div class={styles.counter}>
+                <div>
+                    <span style="color:red">{ eaten().x }</span> : <span>{ eaten().y }</span>
+                </div>
             </div>
             <canvas ref={canvas} class={styles.field} width="500" height="500"/>
         </div>

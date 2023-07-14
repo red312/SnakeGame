@@ -1,2 +1,7 @@
-.game {
+.main {
+    display: flex;
+    font-family: monospace;
+}
+.info {
+    margin-left: 20px;
 }
